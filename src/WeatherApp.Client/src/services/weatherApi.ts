@@ -75,3 +75,23 @@ export async function saveLocation(location: LocationSuggestion): Promise<void> 
     throw new Error(`Save location request failed with ${response.status}`);
   }
 }
+
+export async function deleteSavedLocation(locationId: number): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/users/${userId}/locations/${locationId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Delete location request failed with ${response.status}`);
+  }
+}
+
+export async function setDefaultLocation(locationId: number): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/users/${userId}/locations/${locationId}/default`, {
+    method: 'PUT',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Default location request failed with ${response.status}`);
+  }
+}

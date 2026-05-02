@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using WeatherApp.Api.Models;
 
@@ -8,6 +9,7 @@ namespace WeatherApp.Api.Services;
 public sealed class OpenWeatherForecastService(
     HttpClient httpClient,
     IOptions<OpenWeatherOptions> options,
+    IMemoryCache memoryCache,
     MockWeatherForecastService fallback) : IWeatherForecastService
 {
     private static readonly IReadOnlyDictionary<string, string> UsStates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -69,10 +71,16 @@ public sealed class OpenWeatherForecastService(
     public async Task<WeatherDashboard> GetDashboardAsync(string location, string unitSystem, CancellationToken cancellationToken)
     {
         var units = WeatherUnits.Normalize(unitSystem);
+        var dashboardCacheKey = $"openweather:dashboard:{location.Trim().ToLowerInvariant()}:{units}";
 
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
             return await fallback.GetDashboardAsync(location, units, cancellationToken);
+        }
+
+        if (memoryCache.TryGetValue(dashboardCacheKey, out WeatherDashboard? cachedDashboard) && cachedDashboard is not null)
+        {
+            return cachedDashboard;
         }
 
         try
@@ -94,7 +102,9 @@ public sealed class OpenWeatherForecastService(
                 return await fallback.GetDashboardAsync(location, units, cancellationToken);
             }
 
-            return MapDashboard(selectedLocation, oneCall, locations, units);
+            var dashboard = MapDashboard(selectedLocation, oneCall, locations, units);
+            memoryCache.Set(dashboardCacheKey, dashboard, TimeSpan.FromMinutes(10));
+            return dashboard;
         }
         catch
         {
@@ -104,9 +114,17 @@ public sealed class OpenWeatherForecastService(
 
     public async Task<IReadOnlyList<LocationSuggestion>> SearchLocationsAsync(string query, CancellationToken cancellationToken)
     {
+        var normalizedQuery = query.Trim().ToLowerInvariant();
+        var locationCacheKey = $"openweather:locations:{normalizedQuery}";
+
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
             return await fallback.SearchLocationsAsync(query, cancellationToken);
+        }
+
+        if (memoryCache.TryGetValue(locationCacheKey, out IReadOnlyList<LocationSuggestion>? cachedLocations) && cachedLocations is not null)
+        {
+            return cachedLocations;
         }
 
         try
@@ -118,9 +136,12 @@ public sealed class OpenWeatherForecastService(
                     $"/geo/1.0/zip?zip={Uri.EscapeDataString(trimmed)},US&appid={Uri.EscapeDataString(_options.ApiKey)}",
                     cancellationToken);
 
-                return zip is null
+                LocationSuggestion[] zipLocations = zip is null
                     ? []
                     : [new LocationSuggestion(zip.Name, zip.Country, zip.Country, (decimal)zip.Lat, (decimal)zip.Lon)];
+
+                memoryCache.Set(locationCacheKey, zipLocations, TimeSpan.FromHours(6));
+                return zipLocations;
             }
 
             IReadOnlyList<OpenWeatherLocationResponse>? results = [];
@@ -136,7 +157,7 @@ public sealed class OpenWeatherForecastService(
                 }
             }
 
-            return results?
+            var locations = results?
                 .Where(result => !string.IsNullOrWhiteSpace(result.Name))
                 .Select(result => new LocationSuggestion(
                     result.Name,
@@ -145,6 +166,9 @@ public sealed class OpenWeatherForecastService(
                     (decimal)result.Lat,
                     (decimal)result.Lon))
                 .ToArray() ?? [];
+
+            memoryCache.Set(locationCacheKey, locations, TimeSpan.FromHours(6));
+            return locations;
         }
         catch
         {

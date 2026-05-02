@@ -7,6 +7,7 @@ public sealed class InMemoryUserPreferenceService : IUserPreferenceService
 {
     private readonly ConcurrentDictionary<string, UserPreferences> _preferences = new();
     private readonly ConcurrentDictionary<string, List<LocationSuggestion>> _locations = new();
+    private int _nextLocationId;
 
     public Task<UserPreferences> GetPreferencesAsync(string userId, CancellationToken cancellationToken)
     {
@@ -36,12 +37,49 @@ public sealed class InMemoryUserPreferenceService : IUserPreferenceService
                     !location.Name.Equals(request.Name, StringComparison.OrdinalIgnoreCase) ||
                     !location.Region.Equals(request.Region, StringComparison.OrdinalIgnoreCase)))
             {
+                if (request.IsDefault)
+                {
+                    for (var index = 0; index < locations.Count; index++)
+                    {
+                        var saved = locations[index];
+                        locations[index] = saved with { IsDefault = false };
+                    }
+                }
+
                 locations.Add(new LocationSuggestion(
                     request.Name,
                     request.Region,
                     request.Country,
                     request.Latitude,
-                    request.Longitude));
+                    request.Longitude,
+                    Interlocked.Increment(ref _nextLocationId),
+                    request.IsDefault));
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteLocationAsync(string userId, int locationId, CancellationToken cancellationToken)
+    {
+        var locations = _locations.GetOrAdd(userId, _ => []);
+        lock (locations)
+        {
+            locations.RemoveAll(location => location.Id == locationId);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task SetDefaultLocationAsync(string userId, int locationId, CancellationToken cancellationToken)
+    {
+        var locations = _locations.GetOrAdd(userId, _ => []);
+        lock (locations)
+        {
+            for (var index = 0; index < locations.Count; index++)
+            {
+                var saved = locations[index];
+                locations[index] = saved with { IsDefault = saved.Id == locationId };
             }
         }
 

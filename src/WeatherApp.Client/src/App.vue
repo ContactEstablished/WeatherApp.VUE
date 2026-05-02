@@ -16,19 +16,23 @@ import {
   Search,
   Settings,
   ShieldAlert,
+  Star,
   Sun as SunIcon,
   Thermometer as ThermometerIcon,
+  Trash2,
   Zap,
 } from 'lucide-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import MetricCard from './components/MetricCard.vue';
 import WeatherIcon from './components/WeatherIcon.vue';
 import {
+  deleteSavedLocation,
   getPreferences,
   getSavedLocations,
   getWeatherDashboard,
   saveLocation,
   searchLocations,
+  setDefaultLocation,
   updatePreferences,
 } from './services/weatherApi';
 import type { LocationSuggestion, UnitSystem, WeatherDashboard } from './types/weather';
@@ -42,6 +46,7 @@ const suggestions = ref<LocationSuggestion[]>([]);
 const savedLocations = ref<LocationSuggestion[]>([]);
 const searchFocused = ref(false);
 const savingLocation = ref(false);
+const updatingLocationId = ref<number | null>(null);
 let searchTimer: number | undefined;
 
 const navItems = [
@@ -71,6 +76,15 @@ const formattedObservedAt = computed(() => {
 const showSuggestions = computed(() => searchFocused.value && suggestions.value.length > 0);
 
 const activeLocation = computed(() => dashboard.value?.locations[0] ?? null);
+
+const activeSavedLocation = computed(() => {
+  const active = activeLocation.value;
+  if (!active) {
+    return null;
+  }
+
+  return savedLocations.value.find((location) => isSameLocation(location, active)) ?? null;
+});
 
 function formatTime(value: string): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -135,7 +149,7 @@ async function chooseLocation(location: LocationSuggestion): Promise<void> {
 }
 
 async function saveActiveLocation(): Promise<void> {
-  if (!activeLocation.value || savingLocation.value) {
+  if (!activeLocation.value || activeSavedLocation.value || savingLocation.value) {
     return;
   }
 
@@ -148,8 +162,41 @@ async function saveActiveLocation(): Promise<void> {
   }
 }
 
+async function removeSavedLocation(location: LocationSuggestion): Promise<void> {
+  if (!location.id || updatingLocationId.value) {
+    return;
+  }
+
+  updatingLocationId.value = location.id;
+  try {
+    await deleteSavedLocation(location.id);
+    await loadSavedLocations();
+  } finally {
+    updatingLocationId.value = null;
+  }
+}
+
+async function makeDefaultLocation(location: LocationSuggestion): Promise<void> {
+  if (!location.id || location.isDefault || updatingLocationId.value) {
+    return;
+  }
+
+  updatingLocationId.value = location.id;
+  try {
+    await setDefaultLocation(location.id);
+    await loadSavedLocations();
+  } finally {
+    updatingLocationId.value = null;
+  }
+}
+
 function locationLabel(location: LocationSuggestion): string {
   return [location.name, location.region].filter(Boolean).join(', ');
+}
+
+function isSameLocation(first: LocationSuggestion, second: LocationSuggestion): boolean {
+  return first.name.toLowerCase() === second.name.toLowerCase() &&
+    first.region.toLowerCase() === second.region.toLowerCase();
 }
 
 watch(search, (value) => {
@@ -171,7 +218,14 @@ watch(search, (value) => {
 
 onMounted(async () => {
   await loadPreferences();
-  await Promise.all([loadDashboard(), loadSavedLocations()]);
+  await loadSavedLocations();
+
+  const defaultLocation = savedLocations.value.find((location) => location.isDefault) ?? savedLocations.value[0];
+  if (defaultLocation) {
+    search.value = locationLabel(defaultLocation);
+  }
+
+  await loadDashboard();
 });
 </script>
 
@@ -205,18 +259,38 @@ onMounted(async () => {
         <header>
           <span>Saved</span>
         </header>
-        <button
+        <article
           v-for="location in savedLocations"
           :key="`${location.name}-${location.region}`"
-          type="button"
-          @click="chooseLocation(location)"
+          class="saved-location-row"
+          :class="{ 'is-default': location.isDefault }"
         >
-          <MapPin :stroke-width="1.8" />
-          <span>
-            <strong>{{ location.name }}</strong>
-            <em>{{ location.region }}</em>
-          </span>
-        </button>
+          <button type="button" class="saved-location-row__main" @click="chooseLocation(location)">
+            <MapPin :stroke-width="1.8" />
+            <span>
+              <strong>{{ location.name }}</strong>
+              <em>{{ location.region }}</em>
+            </span>
+          </button>
+          <button
+            type="button"
+            class="saved-location-row__icon"
+            :disabled="location.isDefault || updatingLocationId === location.id"
+            :aria-label="`Make ${location.name} default`"
+            @click="makeDefaultLocation(location)"
+          >
+            <Star :stroke-width="1.8" />
+          </button>
+          <button
+            type="button"
+            class="saved-location-row__icon"
+            :disabled="updatingLocationId === location.id"
+            :aria-label="`Remove ${location.name}`"
+            @click="removeSavedLocation(location)"
+          >
+            <Trash2 :stroke-width="1.8" />
+          </button>
+        </article>
       </section>
 
       <section class="premium-card" aria-label="Premium upgrade">
@@ -313,8 +387,16 @@ onMounted(async () => {
                   <Zap :stroke-width="1.8" />
                   {{ dashboard.current.location }}
                 </span>
-                <button class="save-location-button" type="button" :disabled="savingLocation" @click="saveActiveLocation">
-                  <Plus :stroke-width="1.8" />
+                <button
+                  class="save-location-button"
+                  type="button"
+                  :class="{ 'is-saved': activeSavedLocation }"
+                  :disabled="savingLocation || !!activeSavedLocation"
+                  :aria-label="activeSavedLocation ? 'Location already saved' : 'Save location'"
+                  @click="saveActiveLocation"
+                >
+                  <Star v-if="activeSavedLocation" :stroke-width="1.8" />
+                  <Plus v-else :stroke-width="1.8" />
                 </button>
               </div>
               <p>{{ formattedObservedAt }}</p>

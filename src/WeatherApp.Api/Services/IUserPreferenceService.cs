@@ -11,4 +11,8 @@ public interface IUserPreferenceService
     Task<IReadOnlyList<LocationSuggestion>> GetSavedLocationsAsync(string userId, CancellationToken cancellationToken);
 
     Task SaveLocationAsync(string userId, SaveLocationRequest request, CancellationToken cancellationToken);
+
+    Task DeleteLocationAsync(string userId, int locationId, CancellationToken cancellationToken);
+
+    Task SetDefaultLocationAsync(string userId, int locationId, CancellationToken cancellationToken);
 }

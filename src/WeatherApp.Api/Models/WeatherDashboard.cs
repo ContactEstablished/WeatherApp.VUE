@@ -60,4 +60,6 @@ public sealed record LocationSuggestion(
     string Region,
     string Country,
     decimal Latitude,
-    decimal Longitude);
+    decimal Longitude,
+    int? Id = null,
+    bool IsDefault = false);

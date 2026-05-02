@@ -84,7 +84,9 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
                     location.Region,
                     location.Country,
                     location.Latitude,
-                    location.Longitude))
+                    location.Longitude,
+                    location.Id,
+                    location.IsDefault))
                 .ToArrayAsync(cancellationToken);
         }
         catch
@@ -110,6 +112,15 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
                 return;
             }
 
+            if (request.IsDefault)
+            {
+                await dbContext.SavedLocations
+                    .Where(location => location.UserId == userId)
+                    .ExecuteUpdateAsync(
+                        setters => setters.SetProperty(location => location.IsDefault, false),
+                        cancellationToken);
+            }
+
             dbContext.SavedLocations.Add(new SavedLocationEntity
             {
                 UserId = userId,
@@ -122,6 +133,49 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
             });
 
             await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Persistence is opportunistic for the sample app until the DB is provisioned.
+        }
+    }
+
+    public async Task DeleteLocationAsync(string userId, int locationId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+
+            await dbContext.SavedLocations
+                .Where(location => location.UserId == userId && location.Id == locationId)
+                .ExecuteDeleteAsync(cancellationToken);
+        }
+        catch
+        {
+            // Persistence is opportunistic for the sample app until the DB is provisioned.
+        }
+    }
+
+    public async Task SetDefaultLocationAsync(string userId, int locationId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
+
+            var exists = await dbContext.SavedLocations.AnyAsync(
+                location => location.UserId == userId && location.Id == locationId,
+                cancellationToken);
+
+            if (!exists)
+            {
+                return;
+            }
+
+            await dbContext.SavedLocations
+                .Where(location => location.UserId == userId)
+                .ExecuteUpdateAsync(
+                    setters => setters.SetProperty(location => location.IsDefault, location => location.Id == locationId),
+                    cancellationToken);
         }
         catch
         {
