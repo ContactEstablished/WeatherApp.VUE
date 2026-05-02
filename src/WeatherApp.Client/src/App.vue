@@ -12,6 +12,7 @@ import {
   MapPin,
   Moon as MoonIcon,
   Navigation,
+  Plus,
   Search,
   Settings,
   ShieldAlert,
@@ -19,17 +20,29 @@ import {
   Thermometer as ThermometerIcon,
   Zap,
 } from 'lucide-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import MetricCard from './components/MetricCard.vue';
 import WeatherIcon from './components/WeatherIcon.vue';
-import { getWeatherDashboard, updatePreferences } from './services/weatherApi';
-import type { UnitSystem, WeatherDashboard } from './types/weather';
+import {
+  getPreferences,
+  getSavedLocations,
+  getWeatherDashboard,
+  saveLocation,
+  searchLocations,
+  updatePreferences,
+} from './services/weatherApi';
+import type { LocationSuggestion, UnitSystem, WeatherDashboard } from './types/weather';
 
 const dashboard = ref<WeatherDashboard | null>(null);
 const loading = ref(true);
 const error = ref('');
 const search = ref('San Francisco, CA');
 const unitSystem = ref<UnitSystem>('imperial');
+const suggestions = ref<LocationSuggestion[]>([]);
+const savedLocations = ref<LocationSuggestion[]>([]);
+const searchFocused = ref(false);
+const savingLocation = ref(false);
+let searchTimer: number | undefined;
 
 const navItems = [
   { label: 'Overview', icon: Home, active: true },
@@ -54,6 +67,10 @@ const formattedObservedAt = computed(() => {
     minute: '2-digit',
   }).format(new Date(dashboard.value.current.observedAt));
 });
+
+const showSuggestions = computed(() => searchFocused.value && suggestions.value.length > 0);
+
+const activeLocation = computed(() => dashboard.value?.locations[0] ?? null);
 
 function formatTime(value: string): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -83,6 +100,23 @@ async function loadDashboard(): Promise<void> {
   }
 }
 
+async function loadPreferences(): Promise<void> {
+  try {
+    const preferences = await getPreferences();
+    unitSystem.value = preferences.unitSystem;
+  } catch {
+    unitSystem.value = 'imperial';
+  }
+}
+
+async function loadSavedLocations(): Promise<void> {
+  try {
+    savedLocations.value = await getSavedLocations();
+  } catch {
+    savedLocations.value = [];
+  }
+}
+
 async function changeUnits(nextUnitSystem: UnitSystem): Promise<void> {
   if (unitSystem.value === nextUnitSystem) {
     return;
@@ -93,7 +127,52 @@ async function changeUnits(nextUnitSystem: UnitSystem): Promise<void> {
   await loadDashboard();
 }
 
-onMounted(loadDashboard);
+async function chooseLocation(location: LocationSuggestion): Promise<void> {
+  search.value = locationLabel(location);
+  searchFocused.value = false;
+  suggestions.value = [];
+  await loadDashboard();
+}
+
+async function saveActiveLocation(): Promise<void> {
+  if (!activeLocation.value || savingLocation.value) {
+    return;
+  }
+
+  savingLocation.value = true;
+  try {
+    await saveLocation(activeLocation.value);
+    await loadSavedLocations();
+  } finally {
+    savingLocation.value = false;
+  }
+}
+
+function locationLabel(location: LocationSuggestion): string {
+  return [location.name, location.region].filter(Boolean).join(', ');
+}
+
+watch(search, (value) => {
+  window.clearTimeout(searchTimer);
+
+  if (value.trim().length < 2) {
+    suggestions.value = [];
+    return;
+  }
+
+  searchTimer = window.setTimeout(async () => {
+    try {
+      suggestions.value = await searchLocations(value);
+    } catch {
+      suggestions.value = [];
+    }
+  }, 250);
+});
+
+onMounted(async () => {
+  await loadPreferences();
+  await Promise.all([loadDashboard(), loadSavedLocations()]);
+});
 </script>
 
 <template>
@@ -122,6 +201,24 @@ onMounted(loadDashboard);
         </a>
       </nav>
 
+      <section v-if="savedLocations.length" class="saved-locations" aria-label="Saved locations">
+        <header>
+          <span>Saved</span>
+        </header>
+        <button
+          v-for="location in savedLocations"
+          :key="`${location.name}-${location.region}`"
+          type="button"
+          @click="chooseLocation(location)"
+        >
+          <MapPin :stroke-width="1.8" />
+          <span>
+            <strong>{{ location.name }}</strong>
+            <em>{{ location.region }}</em>
+          </span>
+        </button>
+      </section>
+
       <section class="premium-card" aria-label="Premium upgrade">
         <div class="premium-card__gem">
           <Gem :stroke-width="1.7" />
@@ -148,11 +245,27 @@ onMounted(loadDashboard);
       <header class="topbar">
         <form class="search-box" @submit.prevent="loadDashboard">
           <Search :stroke-width="1.9" />
-          <input v-model="search" list="locations" placeholder="Search for a city or place..." />
-          <datalist id="locations">
-            <option v-for="location in dashboard?.locations" :key="location.name" :value="`${location.name}, ${location.region}`" />
-          </datalist>
+          <input
+            v-model="search"
+            placeholder="Search for a city, state, or ZIP..."
+            @focus="searchFocused = true"
+            @keydown.escape="searchFocused = false"
+          />
           <kbd>Ctrl K</kbd>
+          <div v-if="showSuggestions" class="search-suggestions">
+            <button
+              v-for="location in suggestions"
+              :key="`${location.name}-${location.region}-${location.latitude}`"
+              type="button"
+              @mousedown.prevent="chooseLocation(location)"
+            >
+              <MapPin :stroke-width="1.7" />
+              <span>
+                <strong>{{ location.name }}</strong>
+                <em>{{ location.region }} {{ location.country }}</em>
+              </span>
+            </button>
+          </div>
         </form>
 
         <div class="unit-switch" aria-label="Temperature units">
@@ -200,7 +313,9 @@ onMounted(loadDashboard);
                   <Zap :stroke-width="1.8" />
                   {{ dashboard.current.location }}
                 </span>
-                <Navigation :stroke-width="1.8" />
+                <button class="save-location-button" type="button" :disabled="savingLocation" @click="saveActiveLocation">
+                  <Plus :stroke-width="1.8" />
+                </button>
               </div>
               <p>{{ formattedObservedAt }}</p>
               <div class="hero-weather__temp">
