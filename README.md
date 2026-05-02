@@ -62,6 +62,14 @@ dotnet build WeatherApp.slnx
 
 The client is in `src/WeatherApp.Client`. Vite proxies `/api` and `/health` to `http://localhost:5078` during development.
 
+Current UI workflows:
+
+- Live city/state/ZIP search backed by OpenWeather geocoding.
+- Real current, hourly, and daily weather from OpenWeather One Call 3.0.
+- Fahrenheit/Celsius unit toggle backed by anonymous preferences.
+- Saved locations loaded from SQL Server through the .NET API.
+- Save-current-location action from the dashboard hero.
+
 Install dependencies:
 
 ```powershell
@@ -92,10 +100,10 @@ http://127.0.0.1:5173
 - Add migrations once the SQL schema settles.
 - Add cache headers or server-side caching around provider calls.
 - Add integration tests around OpenWeather mapping and SQL persistence.
+- Add delete/update endpoints for saved locations.
 
 ## Next Frontend Work
 
-- Add real search/autocomplete behavior against `/api/weather/locations`.
-- Add saved locations and preferences.
+- Add remove/reorder controls for saved locations.
 - Add mobile interaction polish for the sidebar and forecast cards.
 - Add provider loading/error states per panel instead of whole-page fallback only.

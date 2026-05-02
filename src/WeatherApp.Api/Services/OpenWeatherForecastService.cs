@@ -10,6 +10,60 @@ public sealed class OpenWeatherForecastService(
     IOptions<OpenWeatherOptions> options,
     MockWeatherForecastService fallback) : IWeatherForecastService
 {
+    private static readonly IReadOnlyDictionary<string, string> UsStates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Alabama"] = "AL",
+        ["Alaska"] = "AK",
+        ["Arizona"] = "AZ",
+        ["Arkansas"] = "AR",
+        ["California"] = "CA",
+        ["Colorado"] = "CO",
+        ["Connecticut"] = "CT",
+        ["Delaware"] = "DE",
+        ["Florida"] = "FL",
+        ["Georgia"] = "GA",
+        ["Hawaii"] = "HI",
+        ["Idaho"] = "ID",
+        ["Illinois"] = "IL",
+        ["Indiana"] = "IN",
+        ["Iowa"] = "IA",
+        ["Kansas"] = "KS",
+        ["Kentucky"] = "KY",
+        ["Louisiana"] = "LA",
+        ["Maine"] = "ME",
+        ["Maryland"] = "MD",
+        ["Massachusetts"] = "MA",
+        ["Michigan"] = "MI",
+        ["Minnesota"] = "MN",
+        ["Mississippi"] = "MS",
+        ["Missouri"] = "MO",
+        ["Montana"] = "MT",
+        ["Nebraska"] = "NE",
+        ["Nevada"] = "NV",
+        ["New Hampshire"] = "NH",
+        ["New Jersey"] = "NJ",
+        ["New Mexico"] = "NM",
+        ["New York"] = "NY",
+        ["North Carolina"] = "NC",
+        ["North Dakota"] = "ND",
+        ["Ohio"] = "OH",
+        ["Oklahoma"] = "OK",
+        ["Oregon"] = "OR",
+        ["Pennsylvania"] = "PA",
+        ["Rhode Island"] = "RI",
+        ["South Carolina"] = "SC",
+        ["South Dakota"] = "SD",
+        ["Tennessee"] = "TN",
+        ["Texas"] = "TX",
+        ["Utah"] = "UT",
+        ["Vermont"] = "VT",
+        ["Virginia"] = "VA",
+        ["Washington"] = "WA",
+        ["West Virginia"] = "WV",
+        ["Wisconsin"] = "WI",
+        ["Wyoming"] = "WY"
+    };
+
     private readonly OpenWeatherOptions _options = options.Value;
 
     public async Task<WeatherDashboard> GetDashboardAsync(string location, string unitSystem, CancellationToken cancellationToken)
@@ -69,9 +123,18 @@ public sealed class OpenWeatherForecastService(
                     : [new LocationSuggestion(zip.Name, zip.Country, zip.Country, (decimal)zip.Lat, (decimal)zip.Lon)];
             }
 
-            var results = await GetJsonAsync<IReadOnlyList<OpenWeatherLocationResponse>>(
-                $"/geo/1.0/direct?q={Uri.EscapeDataString(trimmed)}&limit=5&appid={Uri.EscapeDataString(_options.ApiKey)}",
-                cancellationToken);
+            IReadOnlyList<OpenWeatherLocationResponse>? results = [];
+            foreach (var geoQuery in BuildGeoQueries(trimmed))
+            {
+                results = await GetJsonAsync<IReadOnlyList<OpenWeatherLocationResponse>>(
+                    $"/geo/1.0/direct?q={Uri.EscapeDataString(geoQuery)}&limit=5&appid={Uri.EscapeDataString(_options.ApiKey)}",
+                    cancellationToken);
+
+                if (results?.Count > 0)
+                {
+                    break;
+                }
+            }
 
             return results?
                 .Where(result => !string.IsNullOrWhiteSpace(result.Name))
@@ -184,6 +247,37 @@ public sealed class OpenWeatherForecastService(
     private static bool LooksLikeZipCode(string value)
     {
         return value.Length is 5 or 10 && char.IsDigit(value[0]) && value.All(character => char.IsDigit(character) || character == '-');
+    }
+
+    private static IReadOnlyList<string> BuildGeoQueries(string query)
+    {
+        var normalized = query.Trim();
+        var parts = normalized
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 2 && TryNormalizeUsState(parts[1], out var stateCode))
+        {
+            return [$"{parts[0]},{stateCode},US", normalized, parts[0]];
+        }
+
+        if (parts.Length == 2 && parts[1].Length == 2)
+        {
+            return [$"{parts[0]},{parts[1].ToUpperInvariant()}", normalized, parts[0]];
+        }
+
+        return [normalized];
+    }
+
+    private static bool TryNormalizeUsState(string value, out string stateCode)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Length == 2 && UsStates.Values.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
+        {
+            stateCode = trimmed.ToUpperInvariant();
+            return true;
+        }
+
+        return UsStates.TryGetValue(trimmed, out stateCode!);
     }
 
     private static DateTimeOffset FromUnix(long value, TimeSpan offset)
