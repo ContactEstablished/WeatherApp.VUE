@@ -6,7 +6,10 @@ public sealed record WeatherDashboard(
     IReadOnlyList<DailyForecast> Daily,
     IReadOnlyList<WeatherPreview> Previews,
     IReadOnlyList<WeatherMetric> Metrics,
-    IReadOnlyList<LocationSuggestion> Locations);
+    IReadOnlyList<LocationSuggestion> Locations,
+    string UnitSystem,
+    string TemperatureUnit,
+    string WindUnit);
 
 public sealed record CurrentWeather(
     string Location,
@@ -14,10 +17,10 @@ public sealed record CurrentWeather(
     string Condition,
     string Summary,
     string Description,
-    int TemperatureC,
-    int FeelsLikeC,
-    int LowC,
-    int HighC,
+    int Temperature,
+    int FeelsLike,
+    int Low,
+    int High,
     DateTimeOffset Sunrise,
     DateTimeOffset Sunset,
     string BackgroundImageUrl);
@@ -26,22 +29,22 @@ public sealed record HourlyForecast(
     string Label,
     DateTimeOffset Time,
     string Condition,
-    int TemperatureC,
-    int WindKph,
+    int Temperature,
+    decimal WindSpeed,
     int PrecipitationChance);
 
 public sealed record DailyForecast(
     string Day,
     DateOnly Date,
     string Condition,
-    int HighC,
-    int LowC,
+    int High,
+    int Low,
     int PrecipitationChance);
 
 public sealed record WeatherPreview(
     string Condition,
-    int HighC,
-    int LowC,
+    int High,
+    int Low,
     string Description);
 
 public sealed record WeatherMetric(

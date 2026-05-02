@@ -7,6 +7,8 @@ bin/
 obj/
 .dotnet-home/
 *.tsbuildinfo
+appsettings.Development.json
+appsettings.Local.json
 
 # Local environment variables
 .env.local

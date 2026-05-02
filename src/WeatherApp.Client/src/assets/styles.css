@@ -271,6 +271,30 @@ button {
   align-items: center;
 }
 
+.unit-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, 48px);
+  min-height: 44px;
+  padding: 4px;
+  border: 1px solid rgba(138, 169, 210, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.unit-switch button {
+  border: 0;
+  border-radius: 999px;
+  color: #9facbf;
+  background: transparent;
+  font-weight: 700;
+}
+
+.unit-switch button.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, #1e8eff, #42c2ff);
+  box-shadow: 0 0 18px rgba(55, 165, 255, 0.32);
+}
+
 .profile-cluster {
   gap: 22px;
 }

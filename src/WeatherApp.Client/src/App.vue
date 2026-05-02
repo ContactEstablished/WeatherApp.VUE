@@ -22,13 +22,14 @@ import {
 import { computed, onMounted, ref } from 'vue';
 import MetricCard from './components/MetricCard.vue';
 import WeatherIcon from './components/WeatherIcon.vue';
-import { getWeatherDashboard } from './services/weatherApi';
-import type { WeatherDashboard } from './types/weather';
+import { getWeatherDashboard, updatePreferences } from './services/weatherApi';
+import type { UnitSystem, WeatherDashboard } from './types/weather';
 
 const dashboard = ref<WeatherDashboard | null>(null);
 const loading = ref(true);
 const error = ref('');
 const search = ref('San Francisco, CA');
+const unitSystem = ref<UnitSystem>('imperial');
 
 const navItems = [
   { label: 'Overview', icon: Home, active: true },
@@ -73,12 +74,23 @@ async function loadDashboard(): Promise<void> {
   error.value = '';
 
   try {
-    dashboard.value = await getWeatherDashboard(search.value);
+    dashboard.value = await getWeatherDashboard(search.value, unitSystem.value);
+    unitSystem.value = dashboard.value.unitSystem;
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Unable to load weather.';
   } finally {
     loading.value = false;
   }
+}
+
+async function changeUnits(nextUnitSystem: UnitSystem): Promise<void> {
+  if (unitSystem.value === nextUnitSystem) {
+    return;
+  }
+
+  unitSystem.value = nextUnitSystem;
+  await updatePreferences(nextUnitSystem);
+  await loadDashboard();
 }
 
 onMounted(loadDashboard);
@@ -143,6 +155,15 @@ onMounted(loadDashboard);
           <kbd>Ctrl K</kbd>
         </form>
 
+        <div class="unit-switch" aria-label="Temperature units">
+          <button type="button" :class="{ 'is-active': unitSystem === 'imperial' }" @click="changeUnits('imperial')">
+            &deg;F
+          </button>
+          <button type="button" :class="{ 'is-active': unitSystem === 'metric' }" @click="changeUnits('metric')">
+            &deg;C
+          </button>
+        </div>
+
         <div class="profile-cluster">
           <button class="icon-button" type="button" aria-label="Notifications">
             <Bell :stroke-width="1.8" />
@@ -183,8 +204,8 @@ onMounted(loadDashboard);
               </div>
               <p>{{ formattedObservedAt }}</p>
               <div class="hero-weather__temp">
-                <strong>{{ dashboard.current.temperatureC }}</strong>
-                <span>&deg;C</span>
+                <strong>{{ dashboard.current.temperature }}</strong>
+                <span>&deg;{{ dashboard.temperatureUnit }}</span>
               </div>
               <div class="hero-weather__condition">
                 <WeatherIcon :condition="dashboard.current.condition" size="sm" />
@@ -198,7 +219,7 @@ onMounted(loadDashboard);
                 <span>
                   <ThermometerIcon />
                   <small>Feels like</small>
-                  <strong>{{ dashboard.current.feelsLikeC }}&deg;</strong>
+                  <strong>{{ dashboard.current.feelsLike }}&deg;</strong>
                 </span>
                 <span>
                   <SunIcon />
@@ -218,7 +239,7 @@ onMounted(loadDashboard);
             <article v-for="preview in dashboard.previews" :key="preview.condition" class="preview-card">
               <WeatherIcon :condition="preview.condition" size="xl" />
               <strong>{{ preview.condition }}</strong>
-              <span>{{ preview.highC }}&deg; / {{ preview.lowC }}&deg;</span>
+              <span>{{ preview.high }}&deg; / {{ preview.low }}&deg;</span>
               <p>{{ preview.description }}</p>
             </article>
             <div class="carousel-dots" aria-hidden="true">
@@ -237,8 +258,8 @@ onMounted(loadDashboard);
               <article v-for="hour in dashboard.hourly" :key="hour.label" class="hour-card" :class="{ 'is-now': hour.label === 'Now' }">
                 <span>{{ hour.label }}</span>
                 <WeatherIcon :condition="hour.condition" size="md" />
-                <strong>{{ hour.temperatureC }}&deg;</strong>
-                <small>{{ hour.windKph }} km/h</small>
+                <strong>{{ hour.temperature }}&deg;</strong>
+                <small>{{ hour.windSpeed }} {{ dashboard.windUnit }}</small>
               </article>
             </div>
           </section>
@@ -261,11 +282,11 @@ onMounted(loadDashboard);
                   {{ day.precipitationChance }}%
                 </span>
                 <span class="daily-row__range">
-                  <strong>{{ day.highC }}&deg;</strong>
+                  <strong>{{ day.high }}&deg;</strong>
                   <i>
-                    <b :style="{ width: `${Math.max(22, day.highC * 2.6)}px` }"></b>
+                    <b :style="{ width: `${Math.max(22, Math.min(86, day.high * 1.1))}px` }"></b>
                   </i>
-                  <em>{{ day.lowC }}&deg;</em>
+                  <em>{{ day.low }}&deg;</em>
                 </span>
               </article>
             </div>
