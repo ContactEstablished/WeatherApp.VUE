@@ -22,6 +22,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.Configure<OpenWeatherOptions>(builder.Configuration.GetSection("OpenWeather"));
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<MockWeatherForecastService>();
 builder.Services.AddHttpClient<IWeatherForecastService, OpenWeatherForecastService>((services, client) =>
 {
@@ -119,6 +120,26 @@ app.MapPost("/api/users/{userId}/locations", async (
     CancellationToken cancellationToken) =>
 {
     await preferenceService.SaveLocationAsync(NormalizeUserId(userId), request, cancellationToken);
+    return Results.NoContent();
+});
+
+app.MapDelete("/api/users/{userId}/locations/{locationId:int}", async (
+    string userId,
+    int locationId,
+    IUserPreferenceService preferenceService,
+    CancellationToken cancellationToken) =>
+{
+    await preferenceService.DeleteLocationAsync(NormalizeUserId(userId), locationId, cancellationToken);
+    return Results.NoContent();
+});
+
+app.MapPut("/api/users/{userId}/locations/{locationId:int}/default", async (
+    string userId,
+    int locationId,
+    IUserPreferenceService preferenceService,
+    CancellationToken cancellationToken) =>
+{
+    await preferenceService.SetDefaultLocationAsync(NormalizeUserId(userId), locationId, cancellationToken);
     return Results.NoContent();
 });
 

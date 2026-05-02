@@ -26,6 +26,8 @@ Endpoints:
 - `PUT /api/users/anonymous/preferences`
 - `GET /api/users/anonymous/locations`
 - `POST /api/users/anonymous/locations`
+- `DELETE /api/users/anonymous/locations/{locationId}`
+- `PUT /api/users/anonymous/locations/{locationId}/default`
 
 ### Local Secrets
 
@@ -69,6 +71,12 @@ Current UI workflows:
 - Fahrenheit/Celsius unit toggle backed by anonymous preferences.
 - Saved locations loaded from SQL Server through the .NET API.
 - Save-current-location action from the dashboard hero.
+- Remove and default-location actions in the saved locations list.
+
+Provider calls are cached server-side with short development-friendly TTLs:
+
+- Dashboard weather: 10 minutes.
+- Geocoding/search results: 6 hours.
 
 Install dependencies:
 
@@ -98,12 +106,11 @@ http://127.0.0.1:5173
 ## Next Backend Work
 
 - Add migrations once the SQL schema settles.
-- Add cache headers or server-side caching around provider calls.
 - Add integration tests around OpenWeather mapping and SQL persistence.
-- Add delete/update endpoints for saved locations.
+- Add update/reorder endpoints for saved locations.
 
 ## Next Frontend Work
 
-- Add remove/reorder controls for saved locations.
+- Add reorder controls for saved locations.
 - Add mobile interaction polish for the sidebar and forecast cards.
 - Add provider loading/error states per panel instead of whole-page fallback only.

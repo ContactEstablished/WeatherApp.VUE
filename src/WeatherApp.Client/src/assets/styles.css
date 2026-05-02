@@ -136,24 +136,67 @@ button {
   text-transform: uppercase;
 }
 
-.saved-locations button {
+.saved-location-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  align-items: center;
+  gap: 6px;
+  min-height: 56px;
+  padding: 6px;
+  border: 1px solid rgba(138, 169, 210, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.saved-location-row.is-default {
+  border-color: rgba(71, 183, 255, 0.45);
+  background: rgba(54, 160, 255, 0.1);
+}
+
+.saved-location-row__main {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 52px;
-  padding: 10px 14px;
-  border: 1px solid rgba(138, 169, 210, 0.12);
-  border-radius: 8px;
+  min-height: 42px;
+  padding: 8px;
+  border: 0;
+  border-radius: 7px;
   color: #dbe7f7;
-  background: rgba(255, 255, 255, 0.035);
+  background: transparent;
   text-align: left;
 }
 
-.saved-locations button:hover {
-  border-color: rgba(54, 160, 255, 0.48);
+.saved-location-row__main:hover {
   background: rgba(54, 160, 255, 0.12);
+}
+
+.saved-location-row__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: #9facbf;
+  background: transparent;
+}
+
+.saved-location-row__icon:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(54, 160, 255, 0.16);
+}
+
+.saved-location-row__icon:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.saved-location-row.is-default .saved-location-row__icon:first-of-type {
+  color: #ffd25f;
+  opacity: 1;
 }
 
 .saved-locations svg {
@@ -544,8 +587,12 @@ button {
 }
 
 .save-location-button:disabled {
-  cursor: progress;
   opacity: 0.6;
+}
+
+.save-location-button.is-saved {
+  color: #ffd25f;
+  border-color: rgba(255, 210, 95, 0.52);
 }
 
 .hero-weather p {

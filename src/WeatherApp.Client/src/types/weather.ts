@@ -65,6 +65,8 @@ export interface LocationSuggestion {
   country: string;
   latitude: number;
   longitude: number;
+  id?: number | null;
+  isDefault: boolean;
 }
 
 export type UnitSystem = 'imperial' | 'metric';
