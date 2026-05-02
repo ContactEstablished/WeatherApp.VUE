@@ -2,7 +2,11 @@
 node_modules/
 
 # Build output
-/dist/
+dist/
+bin/
+obj/
+.dotnet-home/
+*.tsbuildinfo
 
 # Local environment variables
 .env.local
