@@ -15,13 +15,34 @@ WeatherApp.VUE/
 
 ## Backend
 
-The API is in `src/WeatherApp.Api` and currently serves mock weather data through typed contracts.
+The API is in `src/WeatherApp.Api`. It supports OpenWeather One Call 3.0 through backend-only configuration, and falls back to mock data when no API key is configured.
 
 Endpoints:
 
 - `GET /health`
-- `GET /api/weather/dashboard?location=San%20Francisco%2C%20CA`
-- `GET /api/weather/locations`
+- `GET /api/weather/dashboard?location=San%20Francisco%2C%20CA&unitSystem=imperial&userId=anonymous`
+- `GET /api/weather/locations?query=Seattle`
+- `GET /api/users/anonymous/preferences`
+- `PUT /api/users/anonymous/preferences`
+- `GET /api/users/anonymous/locations`
+- `POST /api/users/anonymous/locations`
+
+### Local Secrets
+
+Create `src/WeatherApp.Api/appsettings.Local.json`. This file is ignored by Git.
+
+```json
+{
+  "OpenWeather": {
+    "ApiKey": "your-openweather-api-key"
+  },
+  "ConnectionStrings": {
+    "WeatherApp": "your-sql-server-connection-string"
+  }
+}
+```
+
+The frontend never receives the OpenWeather key. The Vue app calls the .NET API, and the .NET API calls OpenWeather.
 
 Run locally:
 
@@ -68,10 +89,9 @@ http://127.0.0.1:5173
 
 ## Next Backend Work
 
-- Replace `MockWeatherForecastService` with a provider-backed implementation.
-- Add SQL Server persistence for saved locations, preferences, and user settings.
-- Add configuration sections for provider API keys and connection strings.
-- Add integration tests once the real provider and persistence boundaries are chosen.
+- Add migrations once the SQL schema settles.
+- Add cache headers or server-side caching around provider calls.
+- Add integration tests around OpenWeather mapping and SQL persistence.
 
 ## Next Frontend Work
 

@@ -5,6 +5,9 @@ export interface WeatherDashboard {
   previews: WeatherPreview[];
   metrics: WeatherMetric[];
   locations: LocationSuggestion[];
+  unitSystem: UnitSystem;
+  temperatureUnit: string;
+  windUnit: string;
 }
 
 export interface CurrentWeather {
@@ -13,10 +16,10 @@ export interface CurrentWeather {
   condition: string;
   summary: string;
   description: string;
-  temperatureC: number;
-  feelsLikeC: number;
-  lowC: number;
-  highC: number;
+  temperature: number;
+  feelsLike: number;
+  low: number;
+  high: number;
   sunrise: string;
   sunset: string;
   backgroundImageUrl: string;
@@ -26,8 +29,8 @@ export interface HourlyForecast {
   label: string;
   time: string;
   condition: string;
-  temperatureC: number;
-  windKph: number;
+  temperature: number;
+  windSpeed: number;
   precipitationChance: number;
 }
 
@@ -35,15 +38,15 @@ export interface DailyForecast {
   day: string;
   date: string;
   condition: string;
-  highC: number;
-  lowC: number;
+  high: number;
+  low: number;
   precipitationChance: number;
 }
 
 export interface WeatherPreview {
   condition: string;
-  highC: number;
-  lowC: number;
+  high: number;
+  low: number;
   description: string;
 }
 
@@ -62,4 +65,11 @@ export interface LocationSuggestion {
   country: string;
   latitude: number;
   longitude: number;
+}
+
+export type UnitSystem = 'imperial' | 'metric';
+
+export interface UserPreferences {
+  userId: string;
+  unitSystem: UnitSystem;
 }

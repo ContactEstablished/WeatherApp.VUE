@@ -1,6 +1,12 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using WeatherApp.Api.Data;
+using WeatherApp.Api.Models;
 using WeatherApp.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
 builder.Services.AddCors(options =>
 {
@@ -15,7 +21,28 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSingleton<IWeatherForecastService, MockWeatherForecastService>();
+builder.Services.Configure<OpenWeatherOptions>(builder.Configuration.GetSection("OpenWeather"));
+builder.Services.AddSingleton<MockWeatherForecastService>();
+builder.Services.AddHttpClient<IWeatherForecastService, OpenWeatherForecastService>((services, client) =>
+{
+    var options = services.GetRequiredService<IOptions<OpenWeatherOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(12);
+});
+
+var connectionString = builder.Configuration.GetConnectionString("WeatherApp");
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    builder.Services.AddSingleton<IUserPreferenceService, InMemoryUserPreferenceService>();
+}
+else
+{
+    builder.Services.AddDbContext<WeatherAppDbContext>(options =>
+    {
+        options.UseSqlServer(connectionString);
+    });
+    builder.Services.AddScoped<IUserPreferenceService, SqlUserPreferenceService>();
+}
 
 var app = builder.Build();
 
@@ -25,19 +52,74 @@ var weather = app.MapGroup("/api/weather");
 
 weather.MapGet("/dashboard", async (
     string? location,
+    string? unitSystem,
+    string? userId,
     IWeatherForecastService forecastService,
+    IUserPreferenceService preferenceService,
     CancellationToken cancellationToken) =>
 {
-    var dashboard = await forecastService.GetDashboardAsync(location ?? "San Francisco, CA", cancellationToken);
+    var normalizedUserId = NormalizeUserId(userId);
+    var preferences = await preferenceService.GetPreferencesAsync(normalizedUserId, cancellationToken);
+    var units = WeatherUnits.Normalize(unitSystem ?? preferences.UnitSystem);
+
+    if (!string.Equals(preferences.UnitSystem, units, StringComparison.OrdinalIgnoreCase))
+    {
+        await preferenceService.UpdatePreferencesAsync(normalizedUserId, units, cancellationToken);
+    }
+
+    var dashboard = await forecastService.GetDashboardAsync(location ?? "San Francisco, CA", units, cancellationToken);
     return Results.Ok(dashboard);
 });
 
 weather.MapGet("/locations", async (
+    string? query,
     IWeatherForecastService forecastService,
     CancellationToken cancellationToken) =>
 {
-    var locations = await forecastService.SearchLocationsAsync(cancellationToken);
+    var locations = await forecastService.SearchLocationsAsync(query ?? "San Francisco", cancellationToken);
     return Results.Ok(locations);
+});
+
+app.MapGet("/api/users/{userId}/preferences", async (
+    string userId,
+    IUserPreferenceService preferenceService,
+    CancellationToken cancellationToken) =>
+{
+    var preferences = await preferenceService.GetPreferencesAsync(NormalizeUserId(userId), cancellationToken);
+    return Results.Ok(preferences);
+});
+
+app.MapPut("/api/users/{userId}/preferences", async (
+    string userId,
+    UpdatePreferencesRequest request,
+    IUserPreferenceService preferenceService,
+    CancellationToken cancellationToken) =>
+{
+    var preferences = await preferenceService.UpdatePreferencesAsync(
+        NormalizeUserId(userId),
+        request.UnitSystem,
+        cancellationToken);
+
+    return Results.Ok(preferences);
+});
+
+app.MapGet("/api/users/{userId}/locations", async (
+    string userId,
+    IUserPreferenceService preferenceService,
+    CancellationToken cancellationToken) =>
+{
+    var locations = await preferenceService.GetSavedLocationsAsync(NormalizeUserId(userId), cancellationToken);
+    return Results.Ok(locations);
+});
+
+app.MapPost("/api/users/{userId}/locations", async (
+    string userId,
+    SaveLocationRequest request,
+    IUserPreferenceService preferenceService,
+    CancellationToken cancellationToken) =>
+{
+    await preferenceService.SaveLocationAsync(NormalizeUserId(userId), request, cancellationToken);
+    return Results.NoContent();
 });
 
 app.MapGet("/health", () => Results.Ok(new
@@ -48,3 +130,8 @@ app.MapGet("/health", () => Results.Ok(new
 }));
 
 app.Run();
+
+static string NormalizeUserId(string? userId)
+{
+    return string.IsNullOrWhiteSpace(userId) ? "anonymous" : userId.Trim();
+}
