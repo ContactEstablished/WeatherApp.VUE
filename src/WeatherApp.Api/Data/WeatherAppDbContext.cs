@@ -24,6 +24,8 @@ public sealed class WeatherAppDbContext(DbContextOptions<WeatherAppDbContext> op
             entity.Property(location => location.Name).HasMaxLength(160);
             entity.Property(location => location.Region).HasMaxLength(160);
             entity.Property(location => location.Country).HasMaxLength(80);
+            entity.Property(location => location.Latitude).HasPrecision(9, 6);
+            entity.Property(location => location.Longitude).HasPrecision(9, 6);
             entity.HasIndex(location => new { location.UserId, location.Name, location.Region }).IsUnique();
         });
     }

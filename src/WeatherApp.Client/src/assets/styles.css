@@ -509,6 +509,10 @@ button {
   gap: 16px 20px;
 }
 
+.dashboard-grid > * {
+  min-width: 0;
+}
+
 .hero-weather,
 .panel,
 .preview-card,
@@ -753,6 +757,7 @@ button {
 .hourly-strip {
   display: grid;
   grid-template-columns: repeat(7, minmax(72px, 1fr));
+  max-width: 100%;
   overflow: hidden;
   border: 1px solid rgba(138, 169, 210, 0.1);
   border-radius: 8px;
@@ -996,7 +1001,7 @@ button {
   background: rgba(255, 92, 92, 0.16);
 }
 
-@media (max-width: 1320px) {
+@media (max-width: 1500px) {
   .app-shell {
     grid-template-columns: 104px minmax(0, 1fr);
   }
@@ -1101,6 +1106,14 @@ button {
 }
 
 @media (max-width: 640px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .workspace {
+    overflow: hidden;
+  }
+
   .hero-weather {
     min-height: 560px;
   }
