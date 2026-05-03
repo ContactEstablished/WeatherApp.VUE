@@ -10,8 +10,6 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
     {
         try
         {
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-
             var entity = await dbContext.UserPreferences.FindAsync([userId], cancellationToken);
             if (entity is not null)
             {
@@ -41,8 +39,6 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
 
         try
         {
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-
             var entity = await dbContext.UserPreferences.FindAsync([userId], cancellationToken);
             if (entity is null)
             {
@@ -73,8 +69,6 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
     {
         try
         {
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-
             return await dbContext.SavedLocations
                 .Where(location => location.UserId == userId)
                 .OrderByDescending(location => location.IsDefault)
@@ -99,8 +93,6 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
     {
         try
         {
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-
             var exists = await dbContext.SavedLocations.AnyAsync(location =>
                 location.UserId == userId &&
                 location.Name == request.Name &&
@@ -144,8 +136,6 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
     {
         try
         {
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-
             await dbContext.SavedLocations
                 .Where(location => location.UserId == userId && location.Id == locationId)
                 .ExecuteDeleteAsync(cancellationToken);
@@ -160,8 +150,6 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
     {
         try
         {
-            await dbContext.Database.EnsureCreatedAsync(cancellationToken);
-
             var exists = await dbContext.SavedLocations.AnyAsync(
                 location => location.UserId == userId && location.Id == locationId,
                 cancellationToken);

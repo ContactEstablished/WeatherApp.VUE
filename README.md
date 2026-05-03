@@ -60,6 +60,25 @@ $env:DOTNET_CLI_HOME="$PWD\.dotnet-home"
 dotnet build WeatherApp.slnx
 ```
 
+### Database Migrations
+
+The API uses EF Core migrations for SQL Server schema management.
+
+Restore local tools:
+
+```powershell
+dotnet tool restore
+```
+
+Apply migrations:
+
+```powershell
+$env:DOTNET_CLI_HOME="$PWD\.dotnet-home"
+dotnet tool run dotnet-ef database update --project src\WeatherApp.Api\WeatherApp.Api.csproj --startup-project src\WeatherApp.Api\WeatherApp.Api.csproj
+```
+
+If you created the local `WeatherApp` database with an older build that used `EnsureCreated()`, drop/recreate the development database or baseline it before applying this initial migration. Fresh databases can apply the migration directly.
+
 ## Frontend
 
 The client is in `src/WeatherApp.Client`. Vite proxies `/api` and `/health` to `http://localhost:5078` during development.
@@ -105,7 +124,6 @@ http://127.0.0.1:5173
 
 ## Next Backend Work
 
-- Add migrations once the SQL schema settles.
 - Add integration tests around OpenWeather mapping and SQL persistence.
 - Add update/reorder endpoints for saved locations.
 

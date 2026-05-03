@@ -47,6 +47,20 @@ else
 
 var app = builder.Build();
 
+if (!string.IsNullOrWhiteSpace(connectionString))
+{
+    using var scope = app.Services.CreateScope();
+    try
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<WeatherAppDbContext>();
+        await dbContext.Database.MigrateAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Database migration failed. Persistence endpoints will fall back to no-op behavior until SQL Server is available.");
+    }
+}
+
 app.UseCors("WeatherClient");
 
 var weather = app.MapGroup("/api/weather");
