@@ -77,7 +77,20 @@ $env:DOTNET_CLI_HOME="$PWD\.dotnet-home"
 dotnet tool run dotnet-ef database update --project src\WeatherApp.Api\WeatherApp.Api.csproj --startup-project src\WeatherApp.Api\WeatherApp.Api.csproj
 ```
 
-If you created the local `WeatherApp` database with an older build that used `EnsureCreated()`, drop/recreate the development database or baseline it before applying this initial migration. Fresh databases can apply the migration directly.
+If you created the local `WeatherApp` database with an older build that used `EnsureCreated()`, the tables may already exist without a migration-history row. For local development only, either drop/recreate the development database or baseline the existing schema before applying this initial migration:
+
+```powershell
+sqlcmd -S <server> -d WeatherApp -U <user> -P "<password>" -C -i scripts\baseline-existing-local-db.sql
+dotnet tool run dotnet-ef database update --project src\WeatherApp.Api\WeatherApp.Api.csproj --startup-project src\WeatherApp.Api\WeatherApp.Api.csproj
+```
+
+Fresh databases can apply the migration directly.
+
+Run backend tests:
+
+```powershell
+dotnet test WeatherApp.slnx
+```
 
 ## Frontend
 
