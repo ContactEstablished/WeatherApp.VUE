@@ -76,6 +76,24 @@ export async function saveLocation(location: LocationSuggestion): Promise<void> 
   }
 }
 
+export async function updateSavedLocation(location: LocationSuggestion): Promise<void> {
+  if (!location.id) {
+    throw new Error('Cannot update a location without an id.');
+  }
+
+  const response = await fetch(`${apiBaseUrl}/api/users/${userId}/locations/${location.id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(location),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Update location request failed with ${response.status}`);
+  }
+}
+
 export async function deleteSavedLocation(locationId: number): Promise<void> {
   const response = await fetch(`${apiBaseUrl}/api/users/${userId}/locations/${locationId}`, {
     method: 'DELETE',
@@ -83,6 +101,20 @@ export async function deleteSavedLocation(locationId: number): Promise<void> {
 
   if (!response.ok) {
     throw new Error(`Delete location request failed with ${response.status}`);
+  }
+}
+
+export async function reorderSavedLocations(locationIds: number[]): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/users/${userId}/locations/reorder`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ locationIds }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Reorder locations request failed with ${response.status}`);
   }
 }
 

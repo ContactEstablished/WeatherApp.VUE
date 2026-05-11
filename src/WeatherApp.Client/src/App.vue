@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import {
+  ArrowDown,
+  ArrowUp,
   Bell,
   CalendarDays,
   ChevronDown,
@@ -30,6 +32,7 @@ import {
   getPreferences,
   getSavedLocations,
   getWeatherDashboard,
+  reorderSavedLocations,
   saveLocation,
   searchLocations,
   setDefaultLocation,
@@ -190,6 +193,32 @@ async function makeDefaultLocation(location: LocationSuggestion): Promise<void> 
   }
 }
 
+async function moveSavedLocation(location: LocationSuggestion, index: number, direction: -1 | 1): Promise<void> {
+  if (!location.id || updatingLocationId.value) {
+    return;
+  }
+
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= savedLocations.value.length) {
+    return;
+  }
+
+  const nextLocations = [...savedLocations.value];
+  [nextLocations[index], nextLocations[targetIndex]] = [nextLocations[targetIndex], nextLocations[index]];
+  const locationIds = nextLocations
+    .map((savedLocation) => savedLocation.id)
+    .filter((id): id is number => typeof id === 'number');
+
+  updatingLocationId.value = location.id;
+  savedLocations.value = nextLocations;
+  try {
+    await reorderSavedLocations(locationIds);
+    await loadSavedLocations();
+  } finally {
+    updatingLocationId.value = null;
+  }
+}
+
 function locationLabel(location: LocationSuggestion): string {
   return [location.name, location.region].filter(Boolean).join(', ');
 }
@@ -260,7 +289,7 @@ onMounted(async () => {
           <span>Saved</span>
         </header>
         <article
-          v-for="location in savedLocations"
+          v-for="(location, index) in savedLocations"
           :key="`${location.name}-${location.region}`"
           class="saved-location-row"
           :class="{ 'is-default': location.isDefault }"
@@ -271,6 +300,24 @@ onMounted(async () => {
               <strong>{{ location.name }}</strong>
               <em>{{ location.region }}</em>
             </span>
+          </button>
+          <button
+            type="button"
+            class="saved-location-row__icon"
+            :disabled="index === 0 || updatingLocationId === location.id"
+            :aria-label="`Move ${location.name} up`"
+            @click="moveSavedLocation(location, index, -1)"
+          >
+            <ArrowUp :stroke-width="1.8" />
+          </button>
+          <button
+            type="button"
+            class="saved-location-row__icon"
+            :disabled="index === savedLocations.length - 1 || updatingLocationId === location.id"
+            :aria-label="`Move ${location.name} down`"
+            @click="moveSavedLocation(location, index, 1)"
+          >
+            <ArrowDown :stroke-width="1.8" />
           </button>
           <button
             type="button"

@@ -71,7 +71,7 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
         {
             return await dbContext.SavedLocations
                 .Where(location => location.UserId == userId)
-                .OrderByDescending(location => location.IsDefault)
+                .OrderBy(location => location.SortOrder)
                 .ThenBy(location => location.Name)
                 .Select(location => new LocationSuggestion(
                     location.Name,
@@ -80,7 +80,8 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
                     location.Latitude,
                     location.Longitude,
                     location.Id,
-                    location.IsDefault))
+                    location.IsDefault,
+                    location.SortOrder))
                 .ToArrayAsync(cancellationToken);
         }
         catch
@@ -121,8 +122,45 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
                 Country = request.Country,
                 Latitude = request.Latitude,
                 Longitude = request.Longitude,
-                IsDefault = request.IsDefault
+                IsDefault = request.IsDefault,
+                SortOrder = await NextSortOrderAsync(userId, cancellationToken)
             });
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Persistence is opportunistic for the sample app until the DB is provisioned.
+        }
+    }
+
+    public async Task UpdateLocationAsync(string userId, int locationId, UpdateSavedLocationRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var entity = await dbContext.SavedLocations
+                .SingleOrDefaultAsync(location => location.UserId == userId && location.Id == locationId, cancellationToken);
+
+            if (entity is null)
+            {
+                return;
+            }
+
+            if (request.IsDefault)
+            {
+                await dbContext.SavedLocations
+                    .Where(location => location.UserId == userId && location.Id != locationId)
+                    .ExecuteUpdateAsync(
+                        setters => setters.SetProperty(location => location.IsDefault, false),
+                        cancellationToken);
+            }
+
+            entity.Name = request.Name;
+            entity.Region = request.Region;
+            entity.Country = request.Country;
+            entity.Latitude = request.Latitude;
+            entity.Longitude = request.Longitude;
+            entity.IsDefault = request.IsDefault;
 
             await dbContext.SaveChangesAsync(cancellationToken);
         }
@@ -169,5 +207,40 @@ public sealed class SqlUserPreferenceService(WeatherAppDbContext dbContext) : IU
         {
             // Persistence is opportunistic for the sample app until the DB is provisioned.
         }
+    }
+
+    public async Task ReorderLocationsAsync(string userId, IReadOnlyList<int> locationIds, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var orderById = locationIds
+                .Select((id, index) => new { id, index })
+                .ToDictionary(item => item.id, item => item.index);
+
+            var locations = await dbContext.SavedLocations
+                .Where(location => location.UserId == userId && orderById.Keys.Contains(location.Id))
+                .ToArrayAsync(cancellationToken);
+
+            foreach (var location in locations)
+            {
+                location.SortOrder = orderById[location.Id];
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Persistence is opportunistic for the sample app until the DB is provisioned.
+        }
+    }
+
+    private async Task<int> NextSortOrderAsync(string userId, CancellationToken cancellationToken)
+    {
+        var lastSortOrder = await dbContext.SavedLocations
+            .Where(location => location.UserId == userId)
+            .Select(location => (int?)location.SortOrder)
+            .MaxAsync(cancellationToken);
+
+        return (lastSortOrder ?? -1) + 1;
     }
 }

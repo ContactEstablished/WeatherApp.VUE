@@ -12,7 +12,11 @@ public interface IUserPreferenceService
 
     Task SaveLocationAsync(string userId, SaveLocationRequest request, CancellationToken cancellationToken);
 
+    Task UpdateLocationAsync(string userId, int locationId, UpdateSavedLocationRequest request, CancellationToken cancellationToken);
+
     Task DeleteLocationAsync(string userId, int locationId, CancellationToken cancellationToken);
 
     Task SetDefaultLocationAsync(string userId, int locationId, CancellationToken cancellationToken);
+
+    Task ReorderLocationsAsync(string userId, IReadOnlyList<int> locationIds, CancellationToken cancellationToken);
 }

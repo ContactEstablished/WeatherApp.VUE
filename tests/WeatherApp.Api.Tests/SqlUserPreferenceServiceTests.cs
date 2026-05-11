@@ -62,7 +62,7 @@ public sealed class SqlUserPreferenceServiceTests
     }
 
     [Fact]
-    public async Task GetSavedLocationsAsyncOrdersDefaultFirstThenName()
+    public async Task GetSavedLocationsAsyncOrdersBySortOrderThenName()
     {
         await using var database = await SqlPreferenceDatabase.CreateAsync();
         var service = database.CreateService();
@@ -75,13 +75,13 @@ public sealed class SqlUserPreferenceServiceTests
 
         Assert.Collection(
             locations,
+            location => Assert.Equal("Seattle", location.Name),
+            location => Assert.Equal("Austin", location.Name),
             location =>
             {
                 Assert.Equal("San Francisco", location.Name);
                 Assert.True(location.IsDefault);
-            },
-            location => Assert.Equal("Austin", location.Name),
-            location => Assert.Equal("Seattle", location.Name));
+            });
     }
 
     [Fact]
@@ -121,6 +121,66 @@ public sealed class SqlUserPreferenceServiceTests
 
         Assert.Empty(await service.GetSavedLocationsAsync("anonymous", CancellationToken.None));
         Assert.Equal("San Francisco", Assert.Single(await service.GetSavedLocationsAsync("someone-else", CancellationToken.None)).Name);
+    }
+
+    [Fact]
+    public async Task UpdateLocationAsyncChangesLocationAndDefaultState()
+    {
+        await using var database = await SqlPreferenceDatabase.CreateAsync();
+        var service = database.CreateService();
+
+        await service.SaveLocationAsync("anonymous", SanFrancisco(), CancellationToken.None);
+        await service.SaveLocationAsync("anonymous", Seattle(isDefault: true), CancellationToken.None);
+
+        var initial = await service.GetSavedLocationsAsync("anonymous", CancellationToken.None);
+        var sanFranciscoId = initial.Single(location => location.Name == "San Francisco").Id!.Value;
+
+        await service.UpdateLocationAsync(
+            "anonymous",
+            sanFranciscoId,
+            new UpdateSavedLocationRequest("Oakland", "California", "United States", 37.8044m, -122.2712m, true),
+            CancellationToken.None);
+
+        var updated = await service.GetSavedLocationsAsync("anonymous", CancellationToken.None);
+
+        var oakland = Assert.Single(updated, location => location.Name == "Oakland");
+        Assert.Equal(37.8044m, oakland.Latitude);
+        Assert.True(oakland.IsDefault);
+        Assert.False(updated.Single(location => location.Name == "Seattle").IsDefault);
+    }
+
+    [Fact]
+    public async Task ReorderLocationsAsyncUpdatesSortOrderForRequestedUserOnly()
+    {
+        await using var database = await SqlPreferenceDatabase.CreateAsync();
+        var service = database.CreateService();
+
+        await service.SaveLocationAsync("anonymous", SanFrancisco(), CancellationToken.None);
+        await service.SaveLocationAsync("anonymous", Seattle(), CancellationToken.None);
+        await service.SaveLocationAsync("someone-else", Austin(), CancellationToken.None);
+
+        var initial = await service.GetSavedLocationsAsync("anonymous", CancellationToken.None);
+        var sanFranciscoId = initial.Single(location => location.Name == "San Francisco").Id!.Value;
+        var seattleId = initial.Single(location => location.Name == "Seattle").Id!.Value;
+
+        await service.ReorderLocationsAsync("anonymous", [seattleId, sanFranciscoId], CancellationToken.None);
+
+        var reordered = await service.GetSavedLocationsAsync("anonymous", CancellationToken.None);
+        var otherUserLocations = await service.GetSavedLocationsAsync("someone-else", CancellationToken.None);
+
+        Assert.Collection(
+            reordered,
+            location =>
+            {
+                Assert.Equal("Seattle", location.Name);
+                Assert.Equal(0, location.SortOrder);
+            },
+            location =>
+            {
+                Assert.Equal("San Francisco", location.Name);
+                Assert.Equal(1, location.SortOrder);
+            });
+        Assert.Equal("Austin", Assert.Single(otherUserLocations).Name);
     }
 
     private static SaveLocationRequest SanFrancisco(bool isDefault = false)

@@ -62,4 +62,5 @@ public sealed record LocationSuggestion(
     decimal Latitude,
     decimal Longitude,
     int? Id = null,
-    bool IsDefault = false);
+    bool IsDefault = false,
+    int SortOrder = 0);
