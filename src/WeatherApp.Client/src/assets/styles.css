@@ -138,7 +138,7 @@ button {
 
 .saved-location-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  grid-template-columns: minmax(0, 1fr) repeat(4, 34px);
   align-items: center;
   gap: 6px;
   min-height: 56px;

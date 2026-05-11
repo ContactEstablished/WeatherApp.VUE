@@ -25,7 +25,7 @@ public sealed class InMemoryUserPreferenceService : IUserPreferenceService
     public Task<IReadOnlyList<LocationSuggestion>> GetSavedLocationsAsync(string userId, CancellationToken cancellationToken)
     {
         var locations = _locations.GetOrAdd(userId, _ => []);
-        return Task.FromResult<IReadOnlyList<LocationSuggestion>>(locations);
+        return Task.FromResult<IReadOnlyList<LocationSuggestion>>(locations.OrderBy(location => location.SortOrder).ThenBy(location => location.Name).ToArray());
     }
 
     public Task SaveLocationAsync(string userId, SaveLocationRequest request, CancellationToken cancellationToken)
@@ -53,8 +53,43 @@ public sealed class InMemoryUserPreferenceService : IUserPreferenceService
                     request.Latitude,
                     request.Longitude,
                     Interlocked.Increment(ref _nextLocationId),
-                    request.IsDefault));
+                    request.IsDefault,
+                    locations.Count));
             }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateLocationAsync(string userId, int locationId, UpdateSavedLocationRequest request, CancellationToken cancellationToken)
+    {
+        var locations = _locations.GetOrAdd(userId, _ => []);
+        lock (locations)
+        {
+            var index = locations.FindIndex(location => location.Id == locationId);
+            if (index < 0)
+            {
+                return Task.CompletedTask;
+            }
+
+            if (request.IsDefault)
+            {
+                for (var defaultIndex = 0; defaultIndex < locations.Count; defaultIndex++)
+                {
+                    var saved = locations[defaultIndex];
+                    locations[defaultIndex] = saved with { IsDefault = false };
+                }
+            }
+
+            locations[index] = locations[index] with
+            {
+                Name = request.Name,
+                Region = request.Region,
+                Country = request.Country,
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                IsDefault = request.IsDefault
+            };
         }
 
         return Task.CompletedTask;
@@ -80,6 +115,28 @@ public sealed class InMemoryUserPreferenceService : IUserPreferenceService
             {
                 var saved = locations[index];
                 locations[index] = saved with { IsDefault = saved.Id == locationId };
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task ReorderLocationsAsync(string userId, IReadOnlyList<int> locationIds, CancellationToken cancellationToken)
+    {
+        var locations = _locations.GetOrAdd(userId, _ => []);
+        lock (locations)
+        {
+            var orderById = locationIds
+                .Select((id, index) => new { id, index })
+                .ToDictionary(item => item.id, item => item.index);
+
+            for (var index = 0; index < locations.Count; index++)
+            {
+                var saved = locations[index];
+                if (saved.Id is { } id && orderById.TryGetValue(id, out var sortOrder))
+                {
+                    locations[index] = saved with { SortOrder = sortOrder };
+                }
             }
         }
 

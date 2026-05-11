@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WeatherApp.Api.Data;
 
@@ -11,9 +12,11 @@ using WeatherApp.Api.Data;
 namespace WeatherApp.Api.Data.Migrations
 {
     [DbContext(typeof(WeatherAppDbContext))]
-    partial class WeatherAppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260511175419_AddSavedLocationSortOrder")]
+    partial class AddSavedLocationSortOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

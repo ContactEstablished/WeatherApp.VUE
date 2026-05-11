@@ -27,6 +27,7 @@ public sealed class WeatherAppDbContext(DbContextOptions<WeatherAppDbContext> op
             entity.Property(location => location.Latitude).HasPrecision(9, 6);
             entity.Property(location => location.Longitude).HasPrecision(9, 6);
             entity.HasIndex(location => new { location.UserId, location.Name, location.Region }).IsUnique();
+            entity.HasIndex(location => new { location.UserId, location.SortOrder });
         });
     }
 }
@@ -59,6 +60,8 @@ public sealed class SavedLocationEntity
     public decimal Longitude { get; set; }
 
     public bool IsDefault { get; set; }
+
+    public int SortOrder { get; set; }
 
     public DateTimeOffset CreatedUtc { get; set; } = DateTimeOffset.UtcNow;
 }

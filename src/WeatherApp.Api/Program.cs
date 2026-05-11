@@ -137,6 +137,17 @@ app.MapPost("/api/users/{userId}/locations", async (
     return Results.NoContent();
 });
 
+app.MapPut("/api/users/{userId}/locations/{locationId:int}", async (
+    string userId,
+    int locationId,
+    UpdateSavedLocationRequest request,
+    IUserPreferenceService preferenceService,
+    CancellationToken cancellationToken) =>
+{
+    await preferenceService.UpdateLocationAsync(NormalizeUserId(userId), locationId, request, cancellationToken);
+    return Results.NoContent();
+});
+
 app.MapDelete("/api/users/{userId}/locations/{locationId:int}", async (
     string userId,
     int locationId,
@@ -154,6 +165,16 @@ app.MapPut("/api/users/{userId}/locations/{locationId:int}/default", async (
     CancellationToken cancellationToken) =>
 {
     await preferenceService.SetDefaultLocationAsync(NormalizeUserId(userId), locationId, cancellationToken);
+    return Results.NoContent();
+});
+
+app.MapPut("/api/users/{userId}/locations/reorder", async (
+    string userId,
+    ReorderSavedLocationsRequest request,
+    IUserPreferenceService preferenceService,
+    CancellationToken cancellationToken) =>
+{
+    await preferenceService.ReorderLocationsAsync(NormalizeUserId(userId), request.LocationIds, cancellationToken);
     return Results.NoContent();
 });
 

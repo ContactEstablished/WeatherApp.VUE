@@ -14,3 +14,14 @@ public sealed record SaveLocationRequest(
     decimal Latitude,
     decimal Longitude,
     bool IsDefault = false);
+
+public sealed record UpdateSavedLocationRequest(
+    string Name,
+    string Region,
+    string Country,
+    decimal Latitude,
+    decimal Longitude,
+    bool IsDefault = false);
+
+public sealed record ReorderSavedLocationsRequest(
+    IReadOnlyList<int> LocationIds);

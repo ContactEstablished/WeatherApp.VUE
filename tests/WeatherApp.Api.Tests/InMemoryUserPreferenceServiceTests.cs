@@ -56,6 +56,46 @@ public sealed class InMemoryUserPreferenceServiceTests
         Assert.True(saved.IsDefault);
     }
 
+    [Fact]
+    public async Task UpdateLocationAsyncChangesLocationAndDefaultState()
+    {
+        var service = new InMemoryUserPreferenceService();
+
+        await service.SaveLocationAsync("anonymous", SanFrancisco(), CancellationToken.None);
+        var saved = Assert.Single(await service.GetSavedLocationsAsync("anonymous", CancellationToken.None));
+
+        await service.UpdateLocationAsync(
+            "anonymous",
+            saved.Id!.Value,
+            new UpdateSavedLocationRequest("Oakland", "California", "United States", 37.8044m, -122.2712m, true),
+            CancellationToken.None);
+
+        var updated = Assert.Single(await service.GetSavedLocationsAsync("anonymous", CancellationToken.None));
+        Assert.Equal("Oakland", updated.Name);
+        Assert.True(updated.IsDefault);
+    }
+
+    [Fact]
+    public async Task ReorderLocationsAsyncUpdatesSavedLocationOrder()
+    {
+        var service = new InMemoryUserPreferenceService();
+
+        await service.SaveLocationAsync("anonymous", SanFrancisco(), CancellationToken.None);
+        await service.SaveLocationAsync("anonymous", Seattle(), CancellationToken.None);
+
+        var initial = await service.GetSavedLocationsAsync("anonymous", CancellationToken.None);
+        var sanFranciscoId = initial.Single(location => location.Name == "San Francisco").Id!.Value;
+        var seattleId = initial.Single(location => location.Name == "Seattle").Id!.Value;
+
+        await service.ReorderLocationsAsync("anonymous", [seattleId, sanFranciscoId], CancellationToken.None);
+
+        var reordered = await service.GetSavedLocationsAsync("anonymous", CancellationToken.None);
+        Assert.Collection(
+            reordered,
+            location => Assert.Equal("Seattle", location.Name),
+            location => Assert.Equal("San Francisco", location.Name));
+    }
+
     private static SaveLocationRequest SanFrancisco(bool isDefault = false)
     {
         return new SaveLocationRequest("San Francisco", "California", "United States", 37.7749m, -122.4194m, isDefault);
